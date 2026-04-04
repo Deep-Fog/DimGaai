@@ -1,0 +1,9 @@
+{
+  "id": "dimgaai",
+  "name": "Dimgaai (点解)",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Explains selected text using AI and creates a linked document.",
+  "author": "DeepFog",
+  "isDesktopOnly": false
+}
