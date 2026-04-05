@@ -136,6 +136,14 @@ function parseAIResponse(contentText: string): AIResponse {
 
     const result: AIResponse = { explanation: parsed.explanation };
 
+    if (typeof parsed.title === 'string' && parsed.title.length > 0) {
+        result.title = parsed.title;
+    }
+
+    if (Array.isArray(parsed.tags) && parsed.tags.every((t: unknown) => typeof t === 'string')) {
+        result.tags = parsed.tags as string[];
+    }
+
     if (typeof parsed.folder_path === 'string') {
         result.folder_path = parsed.folder_path;
     }

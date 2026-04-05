@@ -68,38 +68,82 @@ source: "[[${sourceFileName}]]"
     return await app.vault.create(filePath, content);
 }
 
-export async function autoLinkVaultText(app: App, term: string, newFile: TFile, onProgress?: (current: number, total: number) => void) {
-    if (!term || term.trim().length < 2) return;
+export interface AutoLinkOptions {
+    maxModifications?: number;
+    signal?: AbortSignal;
+}
+
+export interface AutoLinkResult {
+    modifiedCount: number;
+    scannedCount: number;
+    cancelled: boolean;
+}
+
+const DEFAULT_MAX_MODIFICATIONS = 100;
+
+export async function autoLinkVaultText(
+    app: App,
+    term: string,
+    newFile: TFile,
+    onProgress?: (current: number, total: number) => void,
+    options?: AutoLinkOptions,
+): Promise<AutoLinkResult> {
+    if (!term || term.trim().length < 2) return { modifiedCount: 0, scannedCount: 0, cancelled: false };
+
+    const maxModifications = options?.maxModifications ?? DEFAULT_MAX_MODIFICATIONS;
+    const signal = options?.signal;
 
     const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(?<!\\[\\[)(?<!\\[)\\b(${escapedTerm})\\b(?!\\]\\])(?!\\])`, 'g');
+    // Match term not already inside [[...]] or [...] links.
+    // Uses negative lookbehind for [[ and [, negative lookahead for ]] and ].
+    // Does NOT use \b (word boundary) since it doesn't work for CJK characters.
+    const regex = new RegExp(`(?<!\\[\\[)(?<!\\[)(${escapedTerm})(?!\\]\\])(?!\\])`, 'g');
     const linkText = `[[${newFile.basename}|${term}]]`;
 
     const files = app.vault.getMarkdownFiles().filter(f => f.path !== newFile.path);
     const total = files.length;
-    if (total === 0) return;
+    if (total === 0) return { modifiedCount: 0, scannedCount: 0, cancelled: false };
 
     const BATCH_SIZE = 5;
     const modifications: { file: TFile; content: string }[] = [];
+    let scannedCount = 0;
 
     for (let i = 0; i < total; i += BATCH_SIZE) {
+        if (signal?.aborted) {
+            break;
+        }
+
         const batch = files.slice(i, i + BATCH_SIZE);
         const results = await Promise.all(
             batch.map(async (file) => {
                 const content = await app.vault.read(file);
                 const newContent = content.replace(regex, linkText);
                 return content !== newContent ? { file, content: newContent } : null;
-            })
+            }),
         );
 
         for (const result of results) {
-            if (result) modifications.push(result);
+            if (result) {
+                if (modifications.length >= maxModifications) {
+                    break;
+                }
+                modifications.push(result);
+            }
         }
 
-        onProgress?.(Math.min(i + BATCH_SIZE, total), total);
+        scannedCount = Math.min(i + BATCH_SIZE, total);
+        onProgress?.(scannedCount, total);
     }
 
-    await Promise.all(
-        modifications.map(({ file, content }) => app.vault.modify(file, content))
-    );
+    if (modifications.length > 0 && !(signal?.aborted)) {
+        await Promise.all(
+            modifications.map(({ file, content }) => app.vault.modify(file, content)),
+        );
+    }
+
+    return {
+        modifiedCount: modifications.length,
+        scannedCount,
+        cancelled: signal?.aborted ?? false,
+    };
 }

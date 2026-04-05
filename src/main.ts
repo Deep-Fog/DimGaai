@@ -103,9 +103,23 @@ export default class AIExplainerPlugin extends Plugin {
             editor.replaceSelection(linkText);
 
             if (this.settings.autoLink) {
-                await autoLinkVaultText(this.app, selection, newFile, (current, total) => {
-                    notice.setMessage(`${t(lang, 'linking')} ${current}/${total}`);
-                });
+                const controller = new AbortController();
+                const linkNotice = new Notice(t(lang, 'linking'), 0);
+                linkNotice.noticeEl.innerHTML = `<span>${t(lang, 'linking')}</span>`;
+
+                const linkResult = await autoLinkVaultText(this.app, selection, newFile, (current, total) => {
+                    linkNotice.noticeEl.innerHTML = `<span>${t(lang, 'linking')} ${current}/${total}</span>`;
+                }, { signal: controller.signal });
+
+                linkNotice.hide();
+                if (linkResult.cancelled) {
+                    new Notice(`${t(lang, 'generation_success')} (linking cancelled)`);
+                } else if (linkResult.modifiedCount > 0) {
+                    new Notice(`${t(lang, 'generation_success')} (${linkResult.modifiedCount} files linked)`);
+                } else {
+                    new Notice(t(lang, 'generation_success'));
+                }
+                return;
             }
 
             notice.hide();
