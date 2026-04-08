@@ -105,10 +105,10 @@ export default class AIExplainerPlugin extends Plugin {
             if (this.settings.autoLink) {
                 const controller = new AbortController();
                 const linkNotice = new Notice(t(lang, 'linking'), 0);
-                linkNotice.noticeEl.innerHTML = `<span>${t(lang, 'linking')}</span>`;
+                linkNotice.setMessage(t(lang, 'linking'));
 
                 const linkResult = await autoLinkVaultText(this.app, selection, newFile, (current, total) => {
-                    linkNotice.noticeEl.innerHTML = `<span>${t(lang, 'linking')} ${current}/${total}</span>`;
+                    linkNotice.setMessage(`${t(lang, 'linking')} ${current}/${total}`);
                 }, { signal: controller.signal });
 
                 linkNotice.hide();

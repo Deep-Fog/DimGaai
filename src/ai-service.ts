@@ -141,7 +141,7 @@ function parseAIResponse(contentText: string): AIResponse {
     }
 
     if (Array.isArray(parsed.tags) && parsed.tags.every((t: unknown) => typeof t === 'string')) {
-        result.tags = parsed.tags as string[];
+        result.tags = parsed.tags;
     }
 
     if (typeof parsed.folder_path === 'string') {
@@ -175,8 +175,8 @@ async function fetchOpenAICompatible(
     const payload: Record<string, unknown> = {
         model: settings.model,
         messages: [
-            { role: 'system' as const, content: systemPrompt },
-            { role: 'user' as const, content: userPrompt },
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
         ],
         response_format: { type: 'json_object' },
     };
